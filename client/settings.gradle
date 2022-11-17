@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "Network"
+rootProject.name = "test1@451"
 include ':app'
