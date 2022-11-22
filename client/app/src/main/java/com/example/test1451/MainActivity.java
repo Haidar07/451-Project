@@ -13,6 +13,8 @@ import android.telephony.CellInfo;
 import android.telephony.CellInfoWcdma;
 import android.telephony.CellSignalStrengthGsm;
 import android.telephony.TelephonyManager;
+import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.annotation.RequiresApi;
@@ -22,14 +24,31 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+import android.os.Handler;
+
 public class MainActivity extends Activity {
+
     TextView tv;
     public static final int PERMISSION_RFS = 1024;
     public static final int PERMISSION_ALS = 1025;
-String x ;
+
+    TelephonyManager tele_man;
+    LocalDateTime currentTime;
+    int SNR = -100;
+    int SignalPower = 0;
+    String FrequencyBand = "Unknown";
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    String PhoneType = ""; // it'll hold the type of phone i.e CDMA / GSM/ None
+    String operator;
+    boolean checkRoaming;
+    String location = "";
+    String CellID = "";
+    String x;
+    String data = "";
+
 
     @RequiresApi(api = Build.VERSION_CODES.O)
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -37,32 +56,27 @@ String x ;
         tv = findViewById(R.id.textView);
 
         //instance of TelephonyManager
-        TelephonyManager tele_man = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+        tele_man = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
 
         //Variables
-        LocalDateTime currentTime;
-        int SNR = -100;
-        int SignalPower = 0;
-        String FrequencyBand = "Unknown";
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         String nwcountryISO = tele_man.getNetworkCountryIso();
         String SIMCountryISO = tele_man.getSimCountryIso();
-        String operator = tele_man.getNetworkOperatorName();
-        boolean checkRoaming = tele_man.isNetworkRoaming();
+
+        operator = tele_man.getNetworkOperatorName();
+        checkRoaming = tele_man.isNetworkRoaming();
         currentTime = LocalDateTime.now();
-        String PhoneType = ""; // it'll hold the type of phone i.e CDMA / GSM/ None
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_PHONE_STATE}, PERMISSION_RFS);
             return;
         }
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},PERMISSION_ALS);
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_ALS);
             return;
         }
+
+        // cellID and FrequencyBand
         List<CellInfo> CellInfo = tele_man.getAllCellInfo();
-        String location = "";
-        String CellID = "";
         if (CellInfo.isEmpty()) location = "NULL, Location is not Available!";
         for (CellInfo info : CellInfo) {
             if (info instanceof CellInfoLte) {
@@ -74,7 +88,7 @@ String x ;
                     }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     }
-                    FrequencyBand = ""+((CellInfoLte) info).getCellIdentity().getEarfcn()+" MHz";
+                    FrequencyBand = "" + ((CellInfoLte) info).getCellIdentity().getEarfcn() + " MHz";
                 }
                 break;
             }
@@ -93,18 +107,18 @@ String x ;
                             SNR = ((CellInfoGsm) info).getCellSignalStrength().getRssi();
                         }
                     }
-                    FrequencyBand = ""+((CellInfoGsm) info).getCellIdentity().getArfcn()+" MHz";
+                    FrequencyBand = "" + ((CellInfoGsm) info).getCellIdentity().getArfcn() + " MHz";
                 }
                 break;
-            }
-            else if (info instanceof CellInfoWcdma) {
+            } else if (info instanceof CellInfoWcdma) {
                 CellID = ((CellInfoWcdma) info).getCellIdentity().getMcc() + "-" + ((CellInfoWcdma) info).getCellIdentity().getMnc() + "-" + ((CellInfoWcdma) info).getCellIdentity().getLac() + "-" + ((CellInfoWcdma) info).getCellIdentity().getCid();
                 if (((CellInfoWcdma) info).getCellIdentity().getCid() > 0) {
                     SignalPower = ((CellInfoWcdma) info).getCellSignalStrength().getDbm();
                 }
-                FrequencyBand = ""+((CellInfoWcdma) info).getCellIdentity().getUarfcn();
+                FrequencyBand = "" + ((CellInfoWcdma) info).getCellIdentity().getUarfcn();
                 break;
-            }if (info instanceof CellInfoCdma) {
+            }
+            if (info instanceof CellInfoCdma) {
                 CellID = ((CellInfoCdma) info).getCellIdentity().getBasestationId() + "";
                 if (((CellInfoCdma) info).getCellIdentity().getBasestationId() > 0) {
                     SignalPower = ((CellInfoCdma) info).getCellSignalStrength().getDbm();
@@ -121,61 +135,90 @@ String x ;
                 }
 
                 break;
-            }
-            else{
+            } else {
                 CellID = "Not Available, Unknown Network Type!";
                 break;
             }
         }
 
-
-
         /// GET NETWORK TYPE
         int phoneType = tele_man.getNetworkType();
-        if (phoneType == TelephonyManager.NETWORK_TYPE_GPRS || phoneType == TelephonyManager.NETWORK_TYPE_EDGE || phoneType == TelephonyManager.NETWORK_TYPE_GSM || phoneType == TelephonyManager.PHONE_TYPE_CDMA )
-        {PhoneType = "2G";
-        }else if (phoneType == TelephonyManager.NETWORK_TYPE_UMTS || phoneType == TelephonyManager.NETWORK_TYPE_HSPA)
-        {PhoneType = "3G";
-        }else if (phoneType == TelephonyManager.NETWORK_TYPE_LTE)
-        {PhoneType = "4G";
-        }else {PhoneType = "Unknown";}
+        if (phoneType == TelephonyManager.NETWORK_TYPE_GPRS || phoneType == TelephonyManager.NETWORK_TYPE_EDGE || phoneType == TelephonyManager.NETWORK_TYPE_GSM || phoneType == TelephonyManager.PHONE_TYPE_CDMA) {
+            PhoneType = "2G";
+        } else if (phoneType == TelephonyManager.NETWORK_TYPE_UMTS || phoneType == TelephonyManager.NETWORK_TYPE_HSPA) {
+            PhoneType = "3G";
+        } else if (phoneType == TelephonyManager.NETWORK_TYPE_LTE) {
+            PhoneType = "4G";
+        } else {
+            PhoneType = "Unknown";
+        }
 
-       int state = tele_man.getServiceState().getState();
+        int state = tele_man.getServiceState().getState();
         String stateTExt = "";
-        if (state==0) stateTExt = "In Service";
+        if (state == 0) stateTExt = "In Service";
         else stateTExt = "Out of Service";
 
         String SNRText = "";
+
         //Displaying data
         String data = "Your Mobile Details are enlisted below: \n";
-        data+= "\n Main Features: \n";
+        data += "\n Main Features: \n";
         data += "\n Network type is: " + PhoneType;
         data += "\n Network operator is: " + operator;
-        data += "\n CELL ID: " + CellID + location ;
-        if(SNR == -100) {
+        data += "\n CELL ID: " + CellID + location;
+        if (SNR == -100) {
             SNRText = "Not Available";
-        } else{
-            SNRText = ""+SNR+" dBm";
+        } else {
+            SNRText = "" + SNR + " dBm";
         }
 
         data += "\n Signal-to-Noise Ratio: " + SNRText;
         data += "\n Frequency Band is: " + FrequencyBand;
-        data += "\n Signal Power: " + SignalPower +" dBm";
-        data += "\n Time:  " + currentTime.format(formatter)+"\n";
+        data += "\n Signal Power: " + SignalPower + " dBm";
+        data += "\n Time:  " + currentTime.format(formatter) + "\n";
 
-        data+= "\n Extra Features: \n";
+        data += "\n Extra Features: \n";
 
         data += "\n Network Country ISO is: " + nwcountryISO;
         data += "\n SIM Country ISO is: " + SIMCountryISO;
         data += "\n SimCard State: " + stateTExt;
-        if(x==null) x = "Unknown";
-        data +="\n Phone Number: "+ x;
-        data += "\n Roaming on: " + checkRoaming +"\n";
+        if (x == null) x = "Unknown";
+        data += "\n Phone Number: " + x;
+        data += "\n Roaming on: " + checkRoaming + "\n";
 
         //Now we'll display the information
         tv.setText(data);
 
+        this.data = operator + " " + SignalPower + " " + SNRText + " " +
+                PhoneType + " " + FrequencyBand + " " + CellID + " " +
+                currentTime.format(formatter);
+
+        handler.post(runnable);
+
+        Button button = (Button) findViewById(R.id.button1);
+        button.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                send();
+            }
+        });
+
     }
+
+    // Create the Handler
+    private Handler handler = new Handler();
+
+    // Define the code block to be executed
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    private Runnable runnable = new Runnable() {
+
+        @Override
+        public void run() {
+            System.out.println("Running");
+            handler.postDelayed(runnable, 2000);
+        }
+    };
+
+
     @Override
     public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
         switch (requestCode) {
@@ -189,7 +232,7 @@ String x ;
                             == PackageManager.PERMISSION_GRANTED) {
                         TelephonyManager tele_man = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
                         String number = tele_man.getLine1Number();
-                        x=number;
+                        x = number;
                     }
 
                 } else {
@@ -216,4 +259,9 @@ String x ;
             }
         }
     }
+
+    public void send() {
+        Sender dataSender = new Sender();
+        dataSender.execute(data);
     }
+}

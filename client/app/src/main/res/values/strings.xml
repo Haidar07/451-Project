@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">test1@451</string>
+    <string name="mobile_details">Mobile Details:</string>
+    <string name="send">Send</string>
 </resources>
